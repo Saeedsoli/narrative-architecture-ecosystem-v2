@@ -1,0 +1,93 @@
+# .github/workflows/deploy-ai.yml
+
+name: Deploy AI Service
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        description: "Image tag to deploy (e.g., latest, v1.0.1, or a specific git SHA)"
+        required: true
+      environment:
+        type: choice
+        options: [staging, production]
+        default: staging
+        description: "Target deployment environment"
+
+jobs:
+  build-and-deploy-ai:
+    name: Build and Deploy AI Service to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    
+    # تنظیم محیط بر اساس ورودی
+    environment:
+      name: ${{ inputs.environment }}
+      url: https://ai.narrative-arch.com # (URL فرضی)
+      
+    # دسترسی به secrets و OIDC برای AWS
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # --- مرحله 1: تنظیم و ورود به رجیستری کانتینر (AWS ECR) ---
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # استفاده از OIDC برای احراز هویت امن بدون کلیدهای ثابت
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1 # یا منطقه مورد نظر شما
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # --- مرحله 2: بیلد و Push کردن ایمیج Docker ---
+      - name: Build, Tag, and Push AI Service Image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: narrative-ai-service
+          IMAGE_TAG: ${{ inputs.version }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f apps/ai-service/Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      # --- مرحله 3: استقرار در AWS ECS ---
+      - name: Download existing Task Definition
+        run: |
+          aws ecs describe-task-definition --task-definition narrative-ai-service-${{ inputs.environment }} \
+            --query taskDefinition > task-definition.json
+      
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ai-service
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy Amazon ECS task definition
+        id: deploy-ecs
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ai-service-${{ inputs.environment }}
+          cluster: narrative-cluster-${{ inputs.environment }}
+          wait-for-service-stability: true
+
+      # --- مرحله 4: اجرای تست دودویی (Smoke Test) ---
+      - name: Run Smoke Test on Deployed Service
+        run: |
+          echo "Waiting for service to be fully available..."
+          sleep 20 # زمان کوتاه برای اطمینان از راه‌اندازی کامل سرویس
+          
+          # فراخوانی Health Check Endpoint
+          curl -s -f -H "X-API-KEY: ${{ secrets.AI_SERVICE_API_KEY }}" ${{ vars.AI_SERVICE_URL }}
+        env:
+          AI_SERVICE_URL: ${{ (inputs.environment == 'production' && vars.AI_SERVICE_PROD_URL) || vars.AI_SERVICE_STAGING_URL }}
