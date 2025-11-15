@@ -1,0 +1,31 @@
+  // ========== 4) forum_topics ==========
+  const forumTopicsSchema = {
+    $jsonSchema: {
+      bsonType: 'object',
+      required: ['_id','locale','title','body','author','createdAt'],
+      properties: {
+        _id:      { bsonType: 'string', pattern: ULID_REGEX },
+        locale:   { enum: ['fa','en'] },
+        title:    { bsonType: 'string', minLength: 3 },
+        body:     { bsonType: 'string' },
+        tags:     { bsonType: 'array', items: { bsonType: 'string' } },
+        author:   {
+          bsonType: 'object',
+          required: ['id','username'],
+          properties: {
+            id:       { bsonType: 'string', pattern: ULID_REGEX },
+            username: { bsonType: 'string' }
+          }
+        },
+        status:    { enum: ['open','locked', null] },
+        createdAt: { bsonType: 'date' },
+        updatedAt: { bsonType: ['date','null'] },
+        deletedAt: { bsonType: ['date','null'] }
+      }
+    }
+  };
+  ensureCollection('forum_topics', forumTopicsSchema, true);
+  target.forum_topics.createIndex({ locale: 1, updatedAt: -1 });
+  target.forum_topics.createIndex({ tags: 1 });
+  target.forum_topics.createIndex({ title: 'text', body: 'text' }, { default_language: 'persian' });
+

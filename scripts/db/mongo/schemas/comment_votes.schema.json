@@ -1,0 +1,18 @@
+  // ========== 3) comment_votes ==========
+  const commentVotesSchema = {
+    $jsonSchema: {
+      bsonType: 'object',
+      required: ['_id','target_type','target_id','user_id','value','createdAt'],
+      properties: {
+        _id:         { bsonType: 'string', pattern: ULID_REGEX },
+        target_type: { enum: ['article_comment','forum_post'] },
+        target_id:   { bsonType: 'string', pattern: ULID_REGEX },
+        user_id:     { bsonType: 'string', pattern: ULID_REGEX },
+        value:       { enum: [1,-1] },
+        createdAt:   { bsonType: 'date' }
+      }
+    }
+  };
+  ensureCollection('comment_votes', commentVotesSchema, true);
+  target.comment_votes.createIndex({ target_id: 1, user_id: 1 }, { unique: true });
+  target.comment_votes.createIndex({ createdAt: -1 });

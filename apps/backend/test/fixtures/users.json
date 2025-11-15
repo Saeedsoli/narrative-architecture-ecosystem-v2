@@ -1,0 +1,26 @@
+[
+  {
+    "id": "01HUSERADMIN",
+    "email": "admin@test.com",
+    "password": "AdminPassword123!",
+    "username": "admin_user",
+    "fullName": "Admin User",
+    "roles": ["admin", "user"]
+  },
+  {
+    "id": "01HUSERPREMIUM",
+    "email": "premium@test.com",
+    "password": "PremiumPassword123!",
+    "username": "premium_user",
+    "fullName": "Premium User",
+    "roles": ["premium", "user"]
+  },
+  {
+    "id": "01HUSERREGULAR",
+    "email": "regular@test.com",
+    "password": "RegularPassword123!",
+    "username": "regular_user",
+    "fullName": "Regular User",
+    "roles": ["user"]
+  }
+]

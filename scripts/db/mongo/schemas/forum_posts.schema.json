@@ -1,0 +1,30 @@
+  // ========== 5) forum_posts ==========
+  const forumPostsSchema = {
+    $jsonSchema: {
+      bsonType: 'object',
+      required: ['_id','topic_id','user','body','createdAt'],
+      properties: {
+        _id:        { bsonType: 'string', pattern: ULID_REGEX },
+        topic_id:   { bsonType: 'string', pattern: ULID_REGEX },
+        parent_id:  { bsonType: ['string','null'], pattern: ULID_REGEX },
+        user: {
+          bsonType: 'object',
+          required: ['id','username'],
+          properties: {
+            id:       { bsonType: 'string', pattern: ULID_REGEX },
+            username: { bsonType: 'string' }
+          }
+        },
+        body:       { bsonType: 'string' },
+        likes_count:    { bsonType: ['int','long'], minimum: 0 },
+        dislikes_count: { bsonType: ['int','long'], minimum: 0 },
+        flags:      { bsonType: ['object','null'] },
+        createdAt:  { bsonType: 'date' },
+        deletedAt:  { bsonType: ['date','null'] }
+      }
+    }
+  };
+  ensureCollection('forum_posts', forumPostsSchema, true);
+  target.forum_posts.createIndex({ topic_id: 1, createdAt: -1 });
+  target.forum_posts.createIndex({ parent_id: 1 });
+  target.forum_posts.createIndex({ 'user.id': 1 });

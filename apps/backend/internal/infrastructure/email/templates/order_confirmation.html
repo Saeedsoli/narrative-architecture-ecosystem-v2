@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>تایید سفارش شماره {{.OrderID}}</title>
+</head>
+<body style="direction: rtl; font-family: sans-serif;">
+    <h2>سفارش شما با موفقیت ثبت شد!</h2>
+    <p>سلام {{.UserName}},</p>
+    <p>سفارش شما به شماره <strong>{{.OrderID}}</strong> با موفقیت پرداخت و ثبت شد. جزئیات سفارش:</p>
+    <ul>
+        {{range .Items}}
+        <li>{{.Name}} - {{.Quantity}} عدد - قیمت: {{.Price}} تومان</li>
+        {{end}}
+    </ul>
+    <h3>جمع کل: {{.Total}} تومان</h3>
+    <p>از خرید شما سپاسگزاریم.</p>
+</body>
+</html>

@@ -1,0 +1,12 @@
+-- 000012_seed_roles.up.sql
+-- Seed default roles (idempotent with ON CONFLICT DO NOTHING)
+
+INSERT INTO roles (id, name)
+VALUES
+  ('01H7Z8X3A9B2C4D6F8H0J2K4M6', 'admin'),
+  ('01H7Z8X3A9B2C4D6F8H0J2K4M7', 'moderator'),
+  ('01H7Z8X3A9B2C4D6F8H0J2K4M8', 'editor'),
+  ('01H7Z8X3A9B2C4D6F8H0J2K4M9', 'author'),
+  ('01H7Z8X3A9B2C4D6F8H0J2K4MA', 'premium'),
+  ('01H7Z8X3A9B2C4D6F8H0J2K4MB', 'user')
+ON CONFLICT (name) DO NOTHING;

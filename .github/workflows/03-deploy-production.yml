@@ -1,0 +1,102 @@
+# .github/workflows/03-deploy-production.yml
+
+name: Deploy to Production
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  deploy-production:
+    name: Deploy to Production Environment
+    runs-on: ubuntu-latest
+    
+    environment:
+      name: Production
+      url: https://narrative-arch.com
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # --- مرحله 1: تایید دستی ---
+      # این مرحله در تنظیمات Environment در GitHub فعال می‌شود
+      # Settings > Environments > Production > Required reviewers
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      # --- مرحله 2: اجرای مایگریشن‌های دیتابیس ---
+      - name: Run PostgreSQL Migrations on Production
+        run: |
+          # نصب golang-migrate
+          go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+          migrate -database "${{ secrets.POSTGRES_URL_PRODUCTION }}" -path apps/backend/internal/infrastructure/database/migrations up
+        env:
+          POSTGRES_URL_PRODUCTION: ${{ secrets.POSTGRES_URL_PRODUCTION }}
+
+      # --- مرحله 3: بیلد و Push کردن ایمیج‌های Docker ---
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, Tag, and Push Images
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          # Backend Service
+          docker build -t $ECR_REGISTRY/narrative-backend:$IMAGE_TAG -f apps/backend/Dockerfile .
+          docker push $ECR_REGISTRY/narrative-backend:$IMAGE_TAG
+          
+          # AI Service
+          docker build -t $ECR_REGISTRY/narrative-ai-service:$IMAGE_TAG -f apps/ai-service/Dockerfile .
+          docker push $ECR_REGISTRY/narrative-ai-service:$IMAGE_TAG
+          
+          # Search Sync Worker
+          docker build -t $ECR_REGISTRY/narrative-search-sync:$IMAGE_TAG -f apps/workers/search-sync/Dockerfile .
+          docker push $ECR_REGISTRY/narrative-search-sync:$IMAGE_TAG
+
+      # --- مرحله 4: استقرار سرویس‌ها در AWS ECS ---
+      - name: Download Task Definitions
+        run: |
+          aws s3 cp s3://your-ecs-task-definitions-bucket/backend.json ./backend.json
+          aws s3 cp s3://your-ecs-task-definitions-bucket/ai-service.json ./ai-service.json
+
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ./backend.json
+          container-name: backend
+          image: ${{ steps.login-ecr.outputs.registry }}/narrative-backend:${{ github.event.release.tag_name }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: backend-service
+          cluster: narrative-cluster-production
+          wait-for-service-stability: true
+
+      # ... (تکرار دو مرحله بالا برای ai-service و search-sync-worker)
+
+      # --- مرحله 5: استقرار Frontend در Vercel ---
+      - name: Deploy Frontend to Vercel Production
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+
+      # --- مرحله 6: اجرای تست دودویی (Smoke Test) ---
+      - name: Run Smoke Test on Production
+        run: |
+          sleep 30 # منتظر بمانید تا سرویس‌ها کاملاً راه‌اندازی شوند
+          curl -s -f ${{ vars.PRODUCTION_URL }}/health
+          curl -s -f ${{ vars.PRODUCTION_URL }}/api/v1/articles # یک API عمومی را تست کنید

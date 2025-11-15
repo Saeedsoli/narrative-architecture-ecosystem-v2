@@ -1,0 +1,58 @@
+# .github/workflows/04-ai-seed-data.yml
+
+name: Seed AI Data
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        default: staging
+        description: "Deployment environment (staging/production)"
+
+jobs:
+  seed-ai-data:
+    name: Seed AI Service Data
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Set Environment
+        run: |
+          echo "AI_SERVICE_ENV=${{ inputs.environment }}" >> $GITHUB_ENV
+
+      - name: Install Dependencies
+        run: |
+          pip install -r apps/ai-service/requirements.txt
+
+      - name: Seed Pinecone
+        env:
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          PINECONE_ENVIRONMENT: ${{ secrets.PINECONE_ENVIRONMENT }}
+          PINECONE_INDEX_NAME: ${{ secrets.PINECONE_INDEX_NAME }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          cd apps/ai-service
+          python scripts/seed_pinecone.py
+
+      - name: Verify Seed
+        env:
+          AI_SERVICE_URL: ${{ vars.AI_SERVICE_URL }}
+        run: |
+          curl -s -X POST $AI_SERVICE_URL/analyze \
+            -H "Content-Type: application/json" \
+            -d '{"text": "این یک تست است"}' \
+            | grep "analysis"

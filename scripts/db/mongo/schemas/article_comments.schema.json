@@ -1,0 +1,40 @@
+  // ========== 2) article_comments ==========
+  const articleCommentsSchema = {
+    $jsonSchema: {
+      bsonType: 'object',
+      required: ['_id','article_id','user','body','createdAt'],
+      properties: {
+        _id:        { bsonType: 'string', pattern: ULID_REGEX },
+        article_id: { bsonType: 'string', pattern: ULID_REGEX },
+        user: {
+          bsonType: 'object',
+          required: ['id','username'],
+          properties: {
+            id:       { bsonType: 'string', pattern: ULID_REGEX },
+            username: { bsonType: 'string' },
+            avatar:   { bsonType: ['string','null'] }
+          }
+        },
+        parent_id:  { bsonType: ['string','null'], pattern: ULID_REGEX },
+        thread_id:  { bsonType: ['string','null'], pattern: ULID_REGEX },
+        body:       { bsonType: 'string', minLength: 1 },
+        likes_count:    { bsonType: ['int','long'], minimum: 0 },
+        dislikes_count: { bsonType: ['int','long'], minimum: 0 },
+        moderation_flags: {
+          bsonType: ['object','null'],
+          properties: {
+            isFlagged:   { bsonType: 'bool' },
+            reason:      { bsonType: 'string' },
+            moderatedAt: { bsonType: 'date' }
+          }
+        },
+        createdAt:  { bsonType: 'date' },
+        deletedAt:  { bsonType: ['date','null'] }
+      }
+    }
+  };
+  ensureCollection('article_comments', articleCommentsSchema, true);
+  target.article_comments.createIndex({ article_id: 1, createdAt: -1 });
+  target.article_comments.createIndex({ thread_id: 1, createdAt: 1 });
+  target.article_comments.createIndex({ parent_id: 1 });
+  target.article_comments.createIndex({ 'user.id': 1 });

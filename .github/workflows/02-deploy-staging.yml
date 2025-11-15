@@ -1,0 +1,120 @@
+# .github/workflows/02-deploy-staging.yml
+
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-database-infra:
+    name: Deploy Database Infrastructure
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # --- PostgreSQL Migration ---
+      - name: Setup Go for Migrate
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      - name: Install golang-migrate
+        run: go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+
+      - name: Run PostgreSQL Migrations
+        run: |
+          migrate -database "${{ secrets.POSTGRES_URL_STAGING }}" -path apps/backend/internal/infrastructure/database/migrations up
+        env:
+          POSTGRES_URL_STAGING: ${{ secrets.POSTGRES_URL_STAGING }}
+
+      # --- MongoDB Init ---
+      - name: Setup mongosh
+        uses: mongosh/action-mongosh@v1
+
+      - name: Run MongoDB Init Script
+        run: |
+          mongosh "${{ secrets.MONGO_URI_STAGING }}" --file scripts/db/mongo/mongo-init.js
+        env:
+          MONGO_URI_STAGING: ${{ secrets.MONGO_URI_STAGING }}
+
+      # --- Elasticsearch Init ---
+      - name: Run Elasticsearch Template & Alias Scripts
+        env:
+          ELASTIC_URL: ${{ secrets.ELASTIC_URL_STAGING }}
+        run: |
+          # Apply Templates
+          curl -X PUT "$ELASTIC_URL/articles_fa_v1" -H 'Content-Type: application/json' --data-binary "@elasticsearch/templates/articles_fa_v1.json" || true
+          curl -X PUT "$ELASTIC_URL/articles_en_v1" -H 'Content-Type: application/json' --data-binary "@elasticsearch/templates/articles_en_v1.json" || true
+          curl -X PUT "$ELASTIC_URL/forum_fa_v1" -H 'Content-Type: application/json' --data-binary "@elasticsearch/templates/forum_fa_v1.json" || true
+          curl -X PUT "$ELASTIC_URL/forum_en_v1" -H 'Content-Type: application/json' --data-binary "@elasticsearch/templates/forum_en_v1.json" || true
+          
+          # Apply Aliases
+          bash ./elasticsearch/aliases/create_aliases.sh
+          
+  deploy-services:
+    name: Deploy Services
+    runs-on: ubuntu-latest
+    needs: deploy-database-infra # Run after database infra is ready
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # --- Deploy Frontend (Vercel) ---
+      - name: Deploy Frontend to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod' # This will link to the main branch
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+          
+      # --- Deploy Backend (Placeholder for AWS/GCP) ---
+      # This part depends on your cloud provider. Example for AWS ECR/ECS:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and Push Backend Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: narrative-backend
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f apps/backend/Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Build and Push AI Service Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: narrative-ai-service
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f apps/ai-service/Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Build and Push Search Sync Worker Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: narrative-search-sync
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f apps/workers/search-sync/Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      # Add steps here to update your ECS service or Kubernetes deployment
+      # with the new image tag.
+      - name: Deploy to ECS/Kubernetes (Placeholder)
+        run: echo "Update ECS/Kubernetes deployment with image tag ${{ github.sha }}"

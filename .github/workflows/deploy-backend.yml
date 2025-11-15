@@ -1,0 +1,38 @@
+# .github/workflows/deploy-backend.yml
+# (اختیاری - برای استقرار مستقل Backend)
+
+name: Deploy Backend Service
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        description: "Image tag to deploy (e.g., latest, v1.0.1)"
+        required: true
+      environment:
+        type: choice
+        options: [staging, production]
+        default: staging
+        
+jobs:
+  deploy:
+    name: Deploy Backend to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Update ECS Service
+        run: |
+          aws ecs update-service \
+            --cluster narrative-cluster-${{ inputs.environment }} \
+            --service backend-service \
+            --task-definition narrative-backend:${{ inputs.version }} \
+            --force-new-deployment

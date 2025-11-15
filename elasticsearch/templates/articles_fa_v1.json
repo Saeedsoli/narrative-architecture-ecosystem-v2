@@ -1,0 +1,50 @@
+{
+  "settings": {
+    "analysis": {
+      "char_filter": {
+        "zero_width_norm": {
+          "type": "mapping",
+          "mappings": ["\\u200c=>\\u0020"]
+        }
+      },
+      "filter": {
+        "persian_stop": { "type": "stop", "stopwords": "_persian_" },
+        "persian_stemmer": { "type": "stemmer", "language": "persian" }
+      },
+      "analyzer": {
+        "fa_custom": {
+          "type": "custom",
+          "char_filter": ["zero_width_norm"],
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "arabic_normalization",
+            "persian_normalization",
+            "persian_stop",
+            "persian_stemmer"
+          ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "id":               { "type": "keyword" },
+      "content_group_id": { "type": "keyword" },
+      "locale":           { "type": "keyword" },
+      "title":            { "type": "text", "analyzer": "fa_custom" },
+      "excerpt":          { "type": "text", "analyzer": "fa_custom" },
+      "content":          { "type": "text", "analyzer": "fa_custom" },
+      "tags":             { "type": "keyword" },
+      "category":         { "type": "keyword" },
+      "publishedAt":      { "type": "date" },
+      "author": {
+        "properties": {
+          "id":   { "type": "keyword" },
+          "name": { "type": "text", "analyzer": "fa_custom" }
+        }
+      }
+    }
+  }
+}

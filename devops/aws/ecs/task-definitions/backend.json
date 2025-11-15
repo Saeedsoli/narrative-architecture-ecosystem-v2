@@ -1,0 +1,64 @@
+{
+  "family": "narrative-backend",
+  "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "${ECR_REPO}:latest",
+      "cpu": 512,
+      "memory": 1024,
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "hostPort": 8080
+        }
+      ],
+      "environment": [
+        {
+          "name": "GIN_MODE",
+          "value": "release"
+        },
+        {
+          "name": "HTTP_PORT",
+          "value": "8080"
+        },
+        {
+          "name": "DATABASE_URL",
+          "value": "postgres://user:password@rds-cluster:5432/dbname"
+        },
+        {
+          "name": "MONGODB_URI",
+          "value": "mongodb://mongodb:27017"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "JWT_SECRET_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:123456789012:secret:jwt-secret"
+        },
+        {
+          "name": "ZARINPAL_MERCHANT_ID",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:123456789012:secret:zarinpal-merchant"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/narrative-backend",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "networkMode": "awsvpc",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  }
+}

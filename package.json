@@ -1,0 +1,8 @@
+{"name":"narrative-platform-monorepo","private":true,"scripts":{},"devDependencies":{"turbo":"latest"},"dependencies":{"@elastic/elasticsearch":"^9.2.0","bullmq":"^5.63.0","mongodb":"^7.0.0"}}
+{
+  "scripts": {
+    // ...
+    "test:e2e": "pnpm --filter @narrative-arch/platform exec playwright test",
+    "test:load": "k6 run scripts/performance/load-test.js"
+  }
+}

@@ -1,0 +1,55 @@
+  // ========== 1) articles ==========
+  const articlesSchema = {
+    $jsonSchema: {
+      bsonType: 'object',
+      required: ['_id', 'content_group_id', 'locale', 'title', 'content', 'author', 'status', 'createdAt', 'updatedAt'],
+      properties: {
+        _id:               { bsonType: 'string', pattern: ULID_REGEX },
+        content_group_id:  { bsonType: 'string', pattern: ULID_REGEX },
+        locale:            { enum: ['fa', 'en'] },
+        type:              { enum: ['article', 'podcast', 'video', null] },
+        slug:              { bsonType: ['string','null'] }, // فقط en
+        title:             { bsonType: 'string', minLength: 3 },
+        excerpt:           { bsonType: ['string','null'] },
+        content:           { bsonType: 'string' }, // Markdown یا AST stringify
+        coverImage: {
+          bsonType: ['object','null'],
+          properties: {
+            url:      { bsonType: 'string', pattern: '^https?://' },
+            alt:      { bsonType: ['string','null'] },
+            blurhash: { bsonType: ['string','null'] }
+          }
+        },
+        author: {
+          bsonType: 'object',
+          required: ['id','name'],
+          properties: {
+            id:     { bsonType: 'string', pattern: ULID_REGEX },
+            name:   { bsonType: 'string' },
+            avatar: { bsonType: ['string','null'] }
+          }
+        },
+        metadata: {
+          bsonType: 'object',
+          properties: {
+            tags:      { bsonType: ['array'], items: { bsonType: 'string' } },
+            category:  { bsonType: ['string','null'] },
+            readTime:  { bsonType: ['int','long','null'], minimum: 0 },
+            difficulty:{ enum: ['beginner','intermediate','advanced', null] }
+          }
+        },
+        status:      { enum: ['draft','review','published','scheduled'] },
+        publishedAt: { bsonType: ['date','null'] },
+        createdAt:   { bsonType: 'date' },
+        updatedAt:   { bsonType: 'date' },
+        deletedAt:   { bsonType: ['date','null'] }
+      }
+    }
+  };
+  ensureCollection('articles', articlesSchema, true);
+  target.articles.createIndex({ content_group_id: 1, locale: 1 }, { unique: true });
+  target.articles.createIndex({ locale: 1, slug: 1 }, { unique: true, partialFilterExpression: { slug: { $type: 'string' } } });
+  target.articles.createIndex({ locale: 1, status: 1, publishedAt: -1 });
+  target.articles.createIndex({ 'metadata.tags': 1 });
+  target.articles.createIndex({ 'author.id': 1 });
+  target.articles.createIndex({ title: 'text', excerpt: 'text' }, { default_language: 'persian' });

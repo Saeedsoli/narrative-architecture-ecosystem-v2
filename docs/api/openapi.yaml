@@ -1,0 +1,224 @@
+openapi: 3.0.3
+info:
+  title: "Narrative Architecture API"
+  description: "API documentation for the Narrative Architecture platform. This document covers the core v1 API."
+  version: "1.0.0"
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local Development Server
+  - url: https://api.narrative-arch.com/v1
+    description: Production Server
+
+tags:
+  - name: Auth
+    description: Authentication and user management
+  - name: Articles
+    description: Operations related to articles and content
+
+# Security Scheme
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "JWT Access Token obtained after login."
+
+# Global Security
+security:
+  - BearerAuth: []
+
+# Paths
+paths:
+  # ==================================
+  # Authentication
+  # ==================================
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags: [Auth]
+      security: [] # This endpoint is public
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully. Returns user data and tokens. The refresh token should be stored in an HttpOnly cookie.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '400':
+          description: Invalid input (e.g., email already exists, weak password).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /auth/login:
+    post:
+      summary: Log in a user
+      tags: [Auth]
+      security: [] # This endpoint is public
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401':
+          description: Invalid credentials.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      tags: [Auth]
+      security: [] # Uses HttpOnly cookie for refresh token, not Bearer token
+      description: "Sends the refresh token via an HttpOnly cookie and returns a new access token."
+      responses:
+        '200':
+          description: Token refreshed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken: { type: string }
+        '401':
+          description: Invalid or expired refresh token.
+
+  /auth/me:
+    get:
+      summary: Get current user's profile
+      tags: [Auth]
+      description: "Requires a valid JWT Access Token in the Authorization header."
+      responses:
+        '200':
+          description: Current user data.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401':
+          description: Unauthorized.
+
+  # ==================================
+  # Articles
+  # ==================================
+  /articles/{slug}:
+    get:
+      summary: Get a single article by slug
+      tags: [Articles]
+      security: [] # Articles are public
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: "The URL-friendly slug of the article."
+          schema:
+            type: string
+        - name: locale
+          in: query
+          description: "The language of the article."
+          schema:
+            type: string
+            enum: [fa, en]
+            default: fa
+      responses:
+        '200':
+          description: Article data retrieved successfully.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Article' }
+        '404':
+          description: Article not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+# Reusable Schemas
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error: { type: string }
+
+    RegisterRequest:
+      type: object
+      required: [email, password, username, fullName]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8, description: "Must contain at least one uppercase letter, one number, and one symbol." }
+        username: { type: string, minLength: 3, pattern: '^[A-Za-z0-9._-]+$' }
+        fullName: { type: string }
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    User:
+      type: object
+      properties:
+        id: { type: string, example: "01HABCDE...", description: "ULID" }
+        email: { type: string, format: email }
+        username: { type: string }
+        fullName: { type: string }
+        avatarUrl: { type: string, format: uri, nullable: true }
+        roles: { type: array, items: { type: string } }
+
+    AuthResponse:
+      type: object
+      properties:
+        user: { $ref: '#/components/schemas/User' }
+        accessToken: { type: string, description: "JWT, 15-minute expiry." }
+        # Refresh token is returned in an HttpOnly cookie, not in the response body.
+
+    Article:
+      type: object
+      properties:
+        id: { type: string, description: "ULID" }
+        locale: { type: string, enum: [fa, en] }
+        slug: { type: string }
+        title: { type: string }
+        excerpt: { type: string, nullable: true }
+        content: { type: string, description: "Markdown content." }
+        coverImage:
+          type: object
+          properties:
+            url: { type: string, format: uri }
+            alt: { type: string, nullable: true }
+        author:
+          type: object
+          properties:
+            id: { type: string, description: "ULID" }
+            name: { type: string }
+            avatar: { type: string, format: uri, nullable: true }
+        metadata:
+          type: object
+          properties:
+            tags: { type: array, items: { type: string } }
+            category: { type: string, nullable: true }
+            readTime: { type: integer, description: "In minutes." }
+            difficulty: { type: string, enum: [beginner, intermediate, advanced] }
+        publishedAt: { type: string, format: 'date-time' }
+        updatedAt: { type: string, format: 'date-time' }
+        translations:
+          type: array
+          items:
+            type: object
+            properties:
+              locale: { type: string }
+              slug: { type: string }

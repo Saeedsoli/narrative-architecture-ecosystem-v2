@@ -1,0 +1,31 @@
+# .github/workflows/deploy-frontend.yml
+# (اختیاری - برای استقرار مستقل Frontend)
+
+name: Deploy Frontend
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [staging, production]
+        default: staging
+        description: "Deployment environment"
+
+jobs:
+  deploy:
+    name: Deploy to Vercel (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: ${{ inputs.environment == 'production' && '--prod' || '' }}
+          scope: ${{ secrets.VERCEL_ORG_ID }}

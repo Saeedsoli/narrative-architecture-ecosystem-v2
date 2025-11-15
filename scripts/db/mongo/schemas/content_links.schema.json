@@ -1,0 +1,35 @@
+  // ========== 8) content_links ==========
+  const contentLinksSchema = {
+    $jsonSchema: {
+      bsonType: 'object',
+      required: ['_id','source','targets','createdAt'],
+      properties: {
+        _id:    { bsonType: 'string', pattern: ULID_REGEX },
+        source: {
+          bsonType: 'object',
+          required: ['type','id'],
+          properties: {
+            type: { enum: ['article','video','podcast','exercise'] },
+            id:   { bsonType: 'string' }
+          }
+        },
+        targets: {
+          bsonType: 'array',
+          minItems: 1,
+          items: {
+            bsonType: 'object',
+            required: ['type'],
+            properties: {
+              type:  { enum: ['article','video','podcast','exercise','resource'] },
+              id:    { bsonType: ['string','null'] },
+              url:   { bsonType: ['string','null'] },
+              title: { bsonType: ['string','null'] }
+            }
+          }
+        },
+        createdAt: { bsonType: 'date' }
+      }
+    }
+  };
+  ensureCollection('content_links', contentLinksSchema, true);
+  target.content_links.createIndex({ 'source.type': 1, 'source.id': 1, createdAt: -1 });

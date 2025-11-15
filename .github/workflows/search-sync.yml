@@ -1,0 +1,25 @@
+name: Search Sync Cron
+
+on:
+  schedule:
+    # هر 10 دقیقه
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build and run Docker image
+        run: |
+          docker-compose -f devops/docker-compose.worker.yml build
+          docker-compose -f devops/docker-compose.worker.yml run --rm search-sync-worker
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          ELASTIC_URL: ${{ secrets.ELASTIC_URL }}
+          REDIS_HOST: ${{ secrets.REDIS_HOST }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
+          SYNC_INTERVAL_MINUTES: '10'
+          SYNC_INITIAL: 'false'

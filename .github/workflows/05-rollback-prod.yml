@@ -1,0 +1,63 @@
+# .github/workflows/05-rollback-prod.yml
+
+name: Rollback Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        type: choice
+        options: [backend, ai-service, platform]
+        description: "Which service to rollback?"
+      version:
+        type: string
+        description: "The version to rollback to (e.g., v1.2.0)"
+        required: true
+
+jobs:
+  rollback-production:
+    name: Rollback ${{ inputs.service }} to ${{ inputs.version }}
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Rollback Service
+        env:
+          SERVICE: ${{ inputs.service }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          case $SERVICE in
+            "backend")
+              aws ecs update-service \
+                --cluster narrative-cluster \
+                --service backend-service \
+                --force-new-deployment
+              ;;
+            "ai-service")
+              aws ecs update-service \
+                --cluster narrative-cluster \
+                --service ai-service \
+                --force-new-deployment
+              ;;
+            "platform")
+              aws s3 cp s3://narrative-arch-frontend-bucket/$VERSION/ . --recursive
+              ;;
+          esac
+
+      - name: Verify Rollback
+        env:
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          curl -s $API_URL/health | grep "status\":\"ok"

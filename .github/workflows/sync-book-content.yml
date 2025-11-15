@@ -1,0 +1,51 @@
+# .github/workflows/sync-book-content.yml
+
+name: Sync Book Content
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        type: boolean
+        description: "Force rebuild even if no changes"
+        default: false
+  schedule:
+    - cron: '0 3 * * *' # هر روز ساعت 3 صبح
+
+jobs:
+  sync-and-commit:
+    name: Sync Book Content to Platform
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Platform Repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_FOR_COMMIT }} # یک Personal Access Token برای کامیت کردن
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Download and Process Book Content
+        id: process_book
+        run: |
+          # این اسکریپت تمام کارها را انجام می‌دهد: دانلود، رمزگشایی، پردازش، و تولید فایل‌ها
+          bash ./scripts/sync-content.sh
+
+      - name: Commit and Push Changes
+        run: |
+          git config user.name "Narrative Content Bot"
+          git config user.email "bot@narrative-arch.com"
+          
+          git add apps/platform/content/generated/
+          
+          if git diff-index --quiet HEAD; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore(content): Sync book-derived content [skip ci]"
+            git push
+          fi

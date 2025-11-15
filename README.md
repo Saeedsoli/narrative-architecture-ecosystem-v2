@@ -1,2 +1,2 @@
-# narrative-architecture-ecosystem
-جهان عاشقان ادبیات روایی
+# narrative-architecture-platform
+زیست‌بوم ادبیات و روایت

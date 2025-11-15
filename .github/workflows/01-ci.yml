@@ -1,0 +1,44 @@
+# .github/workflows/01-ci.yml
+
+name: Continuous Integration
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint All Projects
+        run: pnpm run lint
+
+      - name: Build All Projects
+        run: pnpm run build
+
+      - name: Run Unit Tests (if any)
+        # Placeholder for future tests
+        run: echo "Running unit tests... (no tests configured yet)"
+        # example: pnpm run test:unit

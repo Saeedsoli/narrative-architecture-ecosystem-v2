@@ -1,0 +1,33 @@
+  // ========== 6) chat_messages (TTL 90d) ==========
+  const chatMessagesSchema = {
+    $jsonSchema: {
+      bsonType: 'object',
+      required: ['_id','room_id','user','type','createdAt'],
+      properties: {
+        _id:      { bsonType: 'string', pattern: ULID_REGEX },
+        room_id:  { bsonType: 'string', pattern: ULID_REGEX },
+        user: {
+          bsonType: 'object',
+          required: ['id','username'],
+          properties: {
+            id:       { bsonType: 'string', pattern: ULID_REGEX },
+            username: { bsonType: 'string' }
+          }
+        },
+        type:  { enum: ['text','voice'] },
+        text:  { bsonType: ['string','null'] },
+        voice: {
+          bsonType: ['object','null'],
+          properties: {
+            url:      { bsonType: 'string', pattern: '^https?://' },
+            duration: { bsonType: 'int', minimum: 1, maximum: 60 } // 1 min max
+          }
+        },
+        createdAt: { bsonType: 'date' }
+      }
+    }
+  };
+  ensureCollection('chat_messages', chatMessagesSchema, false);
+  target.chat_messages.createIndex({ createdAt: 1 }, { expireAfterSeconds: 7776000 });
+  target.chat_messages.createIndex({ room_id: 1, createdAt: -1 });
+  target.chat_messages.createIndex({ 'user.id': 1 });

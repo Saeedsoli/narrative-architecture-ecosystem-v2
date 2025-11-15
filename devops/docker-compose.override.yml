@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  search-sync-worker:
+    build:
+      context: ../apps/workers/search-sync
+    container_name: narrative-search-sync-worker
+    depends_on:
+      - mongo
+      - elasticsearch
+      - redis
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017
+      - MONGODB_DB=narrative_arch_content
+      - ELASTIC_URL=http://elasticsearch:9200
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SYNC_INTERVAL_MINUTES=5
+      - SYNC_BATCH_SIZE=100
+      - SYNC_INITIAL=true
+      - LOG_LEVEL=debug
+    restart: on-failure
+
+networks:
+  default:
+    name: narrative-network

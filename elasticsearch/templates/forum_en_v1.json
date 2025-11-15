@@ -1,0 +1,34 @@
+{
+  "settings": {
+    "analysis": {
+      "filter": {
+        "en_stop": { "type": "stop", "stopwords": "_english_" }
+      },
+      "analyzer": {
+        "en_custom": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding", "en_stop", "porter_stem"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "id":         { "type": "keyword" },
+      "locale":     { "type": "keyword" },
+      "title":      { "type": "text", "analyzer": "en_custom" },
+      "body":       { "type": "text", "analyzer": "en_custom" },
+      "tags":       { "type": "keyword" },
+      "author": {
+        "properties": {
+          "id":   { "type": "keyword" },
+          "name": { "type": "text", "analyzer": "en_custom" }
+        }
+      },
+      "createdAt":  { "type": "date" },
+      "updatedAt":  { "type": "date" }
+    }
+  }
+}
