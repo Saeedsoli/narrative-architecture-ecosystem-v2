@@ -1,4 +1,42 @@
 # .github/workflows/01-ci.yml
+name: Build and Run Worker
+
+on:
+  push:
+    branches:
+      - main # یا هر شاخه‌ای که می‌خواهید
+
+jobs:
+  build-and-run-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --- بخش اضافه شده برای نصب Docker Compose V2 ---
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      # ------------------------------------------------
+
+      - name: Build and Run Docker Compose Worker
+        run: |
+          # دستورات شما با "docker compose" (بدون خط تیره)
+          docker compose -f devops/docker-compose.worker.yml build
+          docker compose -f devops/docker-compose.worker.yml run --rm search-sync-worker
+        shell: /usr/bin/bash -e {0}
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          ELASTIC_URL: ${{ secrets.ELASTIC_URL }}
+          REDIS_HOST: ${{ secrets.REDIS_HOST }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
+          SYNC_INTERVAL_MINUTES: 10
+          SYNC_INITIAL: false
+
+
+
 
 name: Continuous Integration
 
