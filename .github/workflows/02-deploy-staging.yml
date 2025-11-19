@@ -32,15 +32,17 @@ jobs:
           POSTGRES_URL_STAGING: ${{ secrets.POSTGRES_URL_STAGING }}
 
       # --- MongoDB Init ---
-      - name: Setup mongosh
-        uses: mongosh/action-mongosh@v1
-
-      - name: Run MongoDB Init Script
-        run: |
-          mongosh "${{ secrets.MONGO_URI_STAGING }}" --file scripts/db/mongo/mongo-init.js
-        env:
-          MONGO_URI_STAGING: ${{ secrets.MONGO_URI_STAGING }}
-
+    - name: Install and Run mongosh
+  run: |
+    # دانلود پکیج deb برای Ubuntu
+    curl -fL https://downloads.mongodb.com/compass/mongodb-mongosh_2.1.1_amd64.deb -o mongosh.deb
+    
+    # نصب پکیج
+    sudo dpkg -i mongosh.deb
+    
+    # اجرای دستور mongosh
+    mongosh "${{ secrets.MONGODB_URI }}" --eval "db.serverStatus()"
+  shell: bash
       # --- Elasticsearch Init ---
       - name: Run Elasticsearch Template & Alias Scripts
         env:
